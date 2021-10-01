@@ -4,13 +4,14 @@ defmodule MedioTest do
 
   @moduletag :capture_log
 
+  @path_to_script Path.expand("./test/python_scripts/predict.py")
+
   describe "start / stop" do
     test "port is open and closed on exit" do
       unique_name = Medio.Primo
-      path_to_script = Path.expand("./python_scripts/predict.py")
       initial_arguments = "model foo"
 
-      {:ok, mediator} = Medio.start(unique_name, "python", path_to_script, initial_arguments)
+      {:ok, mediator} = Medio.start(unique_name, "python", @path_to_script, initial_arguments)
 
       %{port: port} = :sys.get_state(mediator)
 
@@ -22,10 +23,9 @@ defmodule MedioTest do
     end
 
     test "start multiple" do
-      path_to_script = Path.expand("./python_scripts/predict.py")
       initial_arguments = "model foo"
-      {:ok, mediator_1} = Medio.start(Medio.Primo, "python", path_to_script, initial_arguments)
-      {:ok, mediator_2} = Medio.start(Medio.Secundo, "python", path_to_script, initial_arguments)
+      {:ok, mediator_1} = Medio.start(Medio.Primo, "python", @path_to_script, initial_arguments)
+      {:ok, mediator_2} = Medio.start(Medio.Secundo, "python", @path_to_script, initial_arguments)
 
       %{port: port_1} = :sys.get_state(mediator_1)
       %{port: port_2} = :sys.get_state(mediator_2)
@@ -42,10 +42,10 @@ defmodule MedioTest do
 
   describe "predict" do
     setup do
-      path_to_script = Path.expand("./python_scripts/predict.py")
       initial_arguments = "model foo"
 
-      {:ok, mediator} = Medio.start(Medio.Primo, "python", path_to_script, initial_arguments)
+      {:ok, mediator} = Medio.start(Medio.Three, "python", @path_to_script, initial_arguments)
+
       on_exit(fn -> :ok = Medio.stop(mediator) end)
 
       %{mediator: mediator}
@@ -78,9 +78,9 @@ defmodule MedioTest do
     end
 
     test "asynchronous with two ports", %{mediator: mediator_1} do
-      path_to_script = Path.expand("./python_scripts/predict.py")
       initial_arguments = "model foo"
-      {:ok, mediator_2} = Medio.start(Medio.Secundo, "python", path_to_script, initial_arguments)
+      {:ok, mediator_2} = Medio.start(Medio.Secundo, "python", @path_to_script, initial_arguments)
+      on_exit(fn -> Medio.stop(mediator_2) end)
 
       frame_id_1 = Medio.predict_async(mediator_1, %{foo: "bar"})
       frame_id_2 = Medio.predict_async(mediator_2, %{foo: "baz"})
@@ -98,26 +98,30 @@ defmodule MedioTest do
       assert {:ok, %{}} = Medio.predict(mediator, %{foo: :bar})
     end
 
-    test "runtime raise", %{mediator: mediator} do
+    test "runtime raise recovery", %{mediator: mediator} do
       %{port: initial_port} = :sys.get_state(mediator)
 
+      initial_mediator_pid = Process.whereis(mediator)
+
       assert {:error, {:detection_timeout, _frame_id}} =
-               Medio.predict(mediator, %{raise: true}, 100)
+               Medio.predict(mediator, %{raise: true}, 500)
 
       # since there was a runtime error on python side,
       # that process on the other side of the port is restarted and we get a new port:
       %{port: new_port} = :sys.get_state(mediator)
+      new_mediator_pid = Process.whereis(mediator)
 
       refute initial_port == new_port
+      assert initial_mediator_pid == new_mediator_pid
 
       # subsequent operations are not affected:
       assert {:ok, %{}} = Medio.predict(mediator, %{foo: :bar})
     end
 
-    test "runtime error async", %{mediator: mediator} do
+    test "runtime raise recovery async", %{mediator: mediator} do
       frame_id = Medio.predict_async(mediator, %{raise: true})
 
-      assert {:error, _reason} = Medio.predict_await(frame_id, 100)
+      assert {:error, _reason} = Medio.predict_await(frame_id, 500)
       # subsequent operations are not affected:
       assert {:ok, %{}} = Medio.predict(mediator, %{foo: :bar})
     end

@@ -1,12 +1,13 @@
 defmodule Medio do
   @moduledoc """
-    Suppose we have a python script "./python_scripts/predict.py" and the "python" executable is available in PATH.
+    Suppose we have a python script "./python_scripts/predict.py" and the "python"
+    executable is available in PATH.
 
     # Start the port passing some initial params:
     {:ok, name} = Medio.start(Medio.Primo, "python", Path.expand("./python_scripts/predict.py"), "model foo")
 
-    # then using this name, call:
-    Medio.predict(Medio.Primo, %{foo: "baz"})
+    # then call for predict:
+    Medio.predict(name, %{foo: "baz"})
   """
 
   alias Medio.{Mediator, PortSupervisor}

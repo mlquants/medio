@@ -33,15 +33,15 @@ defmodule Medio.Mediator do
   def init(opts) do
     config = config(opts)
 
-    port =
-      Port.open(
-        {:spawn_executable, config.python},
-        [:binary, :nouse_stdio, {:packet, 4}, args: [config.script, config.init_arguments]]
-      )
+    {:ok, %{port: open_port(config), requests: %{}, config: config}}
+  end
 
-    Port.monitor(port)
-
-    {:ok, %{port: port, requests: %{}}}
+  defp open_port(config) do
+    Port.open(
+      {:spawn_executable, config.python},
+      [:binary, :nouse_stdio, {:packet, 4}, args: [config.script, config.init_arguments]]
+    )
+    |> tap(&Port.monitor/1)
   end
 
   @impl true
@@ -68,6 +68,11 @@ defmodule Medio.Mediator do
     end
 
     {:noreply, state}
+  end
+
+  def handle_info({:DOWN, _ref, :port, port, :normal}, %{port: port, config: config} = state) do
+    new_port = open_port(config)
+    {:noreply, %{state | port: new_port}}
   end
 
   defp pack!(%{} = data) do
