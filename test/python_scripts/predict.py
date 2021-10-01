@@ -27,8 +27,6 @@ def read_message(input_frame):
     # read frame data
     frame_data = input_frame.read(total_msg_size - UUID4_SIZE)
 
-    # print(msgpack.loads(image_data))
-
     return {"id": frame_id, "data": msgpack.loads(frame_data)}
 
 

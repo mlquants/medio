@@ -25,8 +25,8 @@ defmodule Medio.Mediator do
     |> Enum.into(%{})
   end
 
-  def request_predict(pid, image_id, %{} = data) when byte_size(image_id) == @uuid4_size do
-    GenServer.call(pid, {:detect, image_id, data})
+  def request_predict(pid, frame_id, %{} = data) when byte_size(frame_id) == @uuid4_size do
+    GenServer.call(pid, {:predict, frame_id, data})
   end
 
   @impl true
@@ -45,10 +45,10 @@ defmodule Medio.Mediator do
   end
 
   @impl true
-  def handle_call({:detect, image_id, %{} = data}, {from_pid, _}, worker) do
-    Port.command(worker.port, [image_id, pack!(data)])
-    worker = put_in(worker, [:requests, image_id], from_pid)
-    {:reply, image_id, worker}
+  def handle_call({:predict, frame_id, %{} = data}, {from_pid, _}, worker) do
+    Port.command(worker.port, [frame_id, pack!(data)])
+    worker = put_in(worker, [:requests, frame_id], from_pid)
+    {:reply, frame_id, worker}
   end
 
   @impl true
