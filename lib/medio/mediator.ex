@@ -8,7 +8,7 @@ defmodule Medio.Mediator do
   @uuid4_size 16
 
   def start_link(opts \\ []) do
-    Logger.info("starting #{opts[:name]} with #{inspect(opts)}")
+    Logger.debug("starting port mediator #{opts[:name]} with #{inspect(opts)}")
     GenServer.start_link(__MODULE__, opts, opts)
   end
 
@@ -29,6 +29,7 @@ defmodule Medio.Mediator do
     GenServer.call(pid, {:detect, image_id, data})
   end
 
+  @impl true
   def init(opts) do
     config = config(opts)
 
@@ -38,32 +39,42 @@ defmodule Medio.Mediator do
         [:binary, :nouse_stdio, {:packet, 4}, args: [config.script, config.init_arguments]]
       )
 
+    Port.monitor(port)
+
     {:ok, %{port: port, requests: %{}}}
   end
 
+  @impl true
   def handle_call({:detect, image_id, %{} = data}, {from_pid, _}, worker) do
     Port.command(worker.port, [image_id, pack!(data)])
     worker = put_in(worker, [:requests, image_id], from_pid)
     {:reply, image_id, worker}
   end
 
+  @impl true
   def handle_info(
-        {port, {:data, <<image_id::binary-size(@uuid4_size), packed_string::binary()>>}},
-        %{port: port} = worker
+        {port, {:data, <<frame_id::binary-size(@uuid4_size), packed_string::binary()>>}},
+        %{port: port} = state
       ) do
-    result = unpack!(packed_string)
     # getting from pid and removing the request from the map
-    {from_pid, worker} = pop_in(worker, [:requests, image_id])
-    # sending the result map to from_pid
-    send(from_pid, {:detected, image_id, result})
-    {:noreply, worker}
+    {from_pid, state} = pop_in(state, [:requests, frame_id])
+
+    case unpack!(packed_string) do
+      %{"success" => true} = result ->
+        send(from_pid, {:ok, frame_id, result})
+
+      %{"success" => false} = result ->
+        send(from_pid, {:error, frame_id, result})
+    end
+
+    {:noreply, state}
   end
 
   defp pack!(%{} = data) do
     Msgpax.pack!(data)
   end
 
-  defp unpack!(packed_string) do
+  defp unpack!(packed_string) when is_binary(packed_string) do
     Msgpax.unpack!(packed_string)
   end
 end

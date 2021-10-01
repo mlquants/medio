@@ -25,11 +25,11 @@ def read_message(input_frame):
     frame_id = input_frame.read(UUID4_SIZE)
 
     # read frame data
-    image_data = input_frame.read(total_msg_size - UUID4_SIZE)
+    frame_data = input_frame.read(total_msg_size - UUID4_SIZE)
 
-    print(msgpack.loads(image_data))
+    # print(msgpack.loads(image_data))
 
-    return {"id": frame_id, "data": msgpack.loads(image_data)}
+    return {"id": frame_id, "data": msgpack.loads(frame_data)}
 
 
 def write_result(output, frame_id, data):
@@ -47,9 +47,21 @@ def init(*init_arguments):
     return {"init_arguments": init_arguments}
 
 
-def predict(msg, context):
+def predict(msg: dict, context: dict):
     # we can use initialized model from context
-    return {"prediction": "Partial clouds", "based_on_input": msg, "context": context}
+    data = msg.get("data", {})
+
+    if data.get("raise"):
+        raise RuntimeError("foo-bar")
+    elif data.get("error"):
+        return {"success": False, "based_on_input": msg, "context": context}
+    else:
+        return {
+            "success": True,
+            "prediction": "Partial clouds",
+            "based_on_input": msg,
+            "context": context,
+        }
 
 
 def run(_, *init_arguments):
@@ -63,8 +75,7 @@ def run(_, *init_arguments):
             break
 
         result = predict(msg, context)
-
-        # send result back to elixir
+        # send result back to elixir:
         write_result(output_f, msg["id"], result)
 
 

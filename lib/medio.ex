@@ -11,6 +11,7 @@ defmodule Medio do
 
   alias Medio.{Mediator, PortSupervisor}
   @uuid4_size 16
+  @timeout :timer.seconds(5)
 
   @doc """
     name: Medio.Primo                                   # atom, unique name
@@ -26,26 +27,29 @@ defmodule Medio do
     end
   end
 
-  def request_predict(pid, %{} = data) do
-    image_id = UUID.uuid4() |> UUID.string_to_binary!()
-    request_predict(pid, image_id, data)
+  def stop(name), do: DynamicSupervisor.terminate_child(PortSupervisor, Process.whereis(name))
+
+  def predict_async(pid, %{} = data) do
+    frame_id = UUID.uuid4() |> UUID.string_to_binary!()
+    predict_async(pid, frame_id, data)
   end
 
-  def request_predict(pid, image_id, %{} = data) when byte_size(image_id) == @uuid4_size do
-    Mediator.request_predict(pid, image_id, %{} = data)
+  def predict_async(pid, frame_id, %{} = data) when byte_size(frame_id) == @uuid4_size do
+    Mediator.request_predict(pid, frame_id, %{} = data)
   end
 
-  def await(image_id, timeout \\ 5000) do
+  def predict_await(frame_id, timeout \\ @timeout) do
     receive do
-      {:detected, ^image_id, result} -> result
+      {:ok, ^frame_id, result} -> {:ok, result}
+      {:error, ^frame_id, reason} -> {:error, reason}
     after
-      timeout -> {:detection_timeout, image_id}
+      timeout -> {:error, {:detection_timeout, frame_id}}
     end
   end
 
-  def predict(pid, %{} = data) do
-    request_predict(pid, %{} = data)
-    |> await()
+  def predict(pid, %{} = data, timeout \\ @timeout) do
+    predict_async(pid, %{} = data)
+    |> predict_await(timeout)
   end
 
   defp spec(name, python, script, init_args) do
