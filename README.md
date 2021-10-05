@@ -2,6 +2,13 @@
 
 From latin `mediō` (“be in the middle”)
 
+Efficient interaction between elixir and python can be achieved in a number of different ways.
+Here we focus on port streaming.
+We focus on a classic ML usecase: load heavy model on init and then do predicts.
+This is an attempt to hide a (relative) complexity of ports interaction via simple library.
+
+The work is greatly inspired by https://github.com/poeticoding/yolo_example and an amazing talk https://www.youtube.com/watch?v=FL1qcLemml0
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
