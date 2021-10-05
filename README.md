@@ -17,7 +17,7 @@ by adding `medio` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:medio, "~> 0.1.0"}
+    {:medio, github: "https://github.com/mlquants/medio"}
   ]
 end
 ```
