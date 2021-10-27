@@ -8,7 +8,7 @@ defmodule Medio.Mediator do
   @uuid4_size 16
 
   def start_link(opts \\ []) do
-    Logger.debug("starting port mediator #{opts[:name]} with #{inspect(opts)}")
+    Logger.info("starting port mediator #{opts[:name]} with #{inspect(opts)}")
     GenServer.start_link(__MODULE__, opts, opts)
   end
 
